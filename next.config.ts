@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Railway requires 0.0.0.0 binding - handled by custom server.js
 };
 
 export default nextConfig;
