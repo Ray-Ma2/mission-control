@@ -78,9 +78,14 @@ export function TaskBoard() {
     }
   });
 
+  // 優先度の順序（high=0, mid=1, low=2）
+  const priorityOrder = { high: 0, mid: 1, low: 2 };
+
   const groupedTasks = COLUMNS.reduce(
     (acc, col) => {
-      acc[col.id] = filteredTasks?.filter((t) => t.status === col.id) || [];
+      const columnTasks = filteredTasks?.filter((t) => t.status === col.id) || [];
+      // 優先度順にソート
+      acc[col.id] = columnTasks.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
       return acc;
     },
     {} as Record<Status, Task[]>
