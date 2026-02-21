@@ -40,15 +40,47 @@ const ASSIGNEE_LABELS = {
   both: { label: "Both", color: "green", icon: "🤝" },
 };
 
+// クライアント/プロジェクトタグの定義
+const CLIENT_TAGS = [
+  { id: "all", label: "すべて", color: "text-dim" },
+  { id: "incrom", label: "インクロム", color: "cyan" },
+  { id: "kobe-tenku", label: "神戸天空", color: "amber" },
+  { id: "manten-r", label: "まんてんR", color: "green" },
+  { id: "safari-games", label: "サファリG", color: "purple" },
+  { id: "rolq", label: "ROLQ", color: "red" },
+  { id: "dev", label: "開発", color: "cyan" },
+];
+
 export function TaskBoard() {
   const tasks = useQuery(api.tasks.list);
   const updateStatus = useMutation(api.tasks.updateStatus);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [filterTag, setFilterTag] = useState<string>("all");
+  const [filterAssignee, setFilterAssignee] = useState<string>("all");
+
+  // フィルタリング
+  const filteredTasks = tasks?.filter((t) => {
+    const tagMatch = filterTag === "all" || t.tag === filterTag;
+    const assigneeMatch = filterAssignee === "all" || t.assignee === filterAssignee;
+    return tagMatch && assigneeMatch;
+  });
+
+  // ユニークなタグを抽出（既存タグ + 定義済みタグ）
+  const existingTags = [...new Set(tasks?.map((t) => t.tag).filter(Boolean) || [])];
+  const allTags = CLIENT_TAGS.filter(
+    (ct) => ct.id === "all" || existingTags.includes(ct.id) || tasks?.some((t) => t.tag === ct.id)
+  );
+  // 定義にないタグも追加
+  existingTags.forEach((tag) => {
+    if (!CLIENT_TAGS.find((ct) => ct.id === tag)) {
+      allTags.push({ id: tag as string, label: tag as string, color: "text-dim" });
+    }
+  });
 
   const groupedTasks = COLUMNS.reduce(
     (acc, col) => {
-      acc[col.id] = tasks?.filter((t) => t.status === col.id) || [];
+      acc[col.id] = filteredTasks?.filter((t) => t.status === col.id) || [];
       return acc;
     },
     {} as Record<Status, Task[]>
@@ -84,6 +116,75 @@ export function TaskBoard() {
         >
           + タスク追加
         </button>
+      </div>
+
+      {/* フィルター */}
+      <div className="mb-4 flex gap-4 items-center">
+        {/* クライアント/タグフィルター */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-text-muted tracking-wider">クライアント:</span>
+          <div className="flex gap-1 flex-wrap">
+            {allTags.map((tag) => (
+              <button
+                key={tag.id}
+                onClick={() => setFilterTag(tag.id)}
+                className={`px-2 py-1 rounded text-[10px] tracking-wider transition-colors ${
+                  filterTag === tag.id
+                    ? `bg-${tag.color}/20 border border-${tag.color}/60 text-${tag.color}`
+                    : "bg-border/20 border border-border text-text-muted hover:bg-border/40"
+                }`}
+              >
+                {tag.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 担当者フィルター */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-text-muted tracking-wider">担当:</span>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setFilterAssignee("all")}
+              className={`px-2 py-1 rounded text-[10px] tracking-wider transition-colors ${
+                filterAssignee === "all"
+                  ? "bg-text-dim/20 border border-text-dim/60 text-text-dim"
+                  : "bg-border/20 border border-border text-text-muted hover:bg-border/40"
+              }`}
+            >
+              All
+            </button>
+            {(["ray", "claude", "both"] as const).map((a) => {
+              const info = ASSIGNEE_LABELS[a];
+              return (
+                <button
+                  key={a}
+                  onClick={() => setFilterAssignee(a)}
+                  className={`px-2 py-1 rounded text-[10px] tracking-wider transition-colors ${
+                    filterAssignee === a
+                      ? `bg-${info.color}/20 border border-${info.color}/60 text-${info.color}`
+                      : "bg-border/20 border border-border text-text-muted hover:bg-border/40"
+                  }`}
+                >
+                  {info.icon}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* フィルターリセット */}
+        {(filterTag !== "all" || filterAssignee !== "all") && (
+          <button
+            onClick={() => {
+              setFilterTag("all");
+              setFilterAssignee("all");
+            }}
+            className="px-2 py-1 text-[10px] text-text-muted hover:text-cyan transition-colors"
+          >
+            ✕ リセット
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -304,15 +405,24 @@ function AddTaskModal({ onClose }: { onClose: () => void }) {
 
           <div>
             <label className="block text-[10px] text-text-dim mb-1 tracking-wider">
-              タグ（任意）
+              クライアント/タグ
             </label>
-            <input
-              type="text"
+            <select
               value={tag}
               onChange={(e) => setTag(e.target.value)}
               className="w-full bg-bg border border-border rounded px-3 py-2 text-[13px] text-text outline-none focus:border-cyan"
-              placeholder="例: SEO, Client, Dev"
-            />
+            >
+              <option value="">（なし）</option>
+              <option value="incrom">インクロム</option>
+              <option value="kobe-tenku">神戸天空</option>
+              <option value="manten-r">まんてんR</option>
+              <option value="safari-games">サファリゲームズ</option>
+              <option value="rolq">ROLQ</option>
+              <option value="leassetlaw">リーセット法律</option>
+              <option value="apple-opt">アップル眼鏡</option>
+              <option value="jukouen">樹香苑</option>
+              <option value="dev">開発・自社</option>
+            </select>
           </div>
 
           <div className="flex gap-2 pt-2">
