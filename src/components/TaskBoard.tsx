@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { useState } from "react";
+import { TaskDetailPanel } from "./TaskDetailPanel";
 
 type Status = "todo" | "in_progress" | "waiting_ray" | "done";
 type Assignee = "ray" | "claude" | "both";
@@ -43,6 +44,7 @@ export function TaskBoard() {
   const tasks = useQuery(api.tasks.list);
   const updateStatus = useMutation(api.tasks.updateStatus);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const groupedTasks = COLUMNS.reduce(
     (acc, col) => {
@@ -59,6 +61,11 @@ export function TaskBoard() {
   ) => {
     await updateStatus({ id: taskId, status: newStatus, author });
   };
+
+  // 選択中のタスクの最新情報を取得
+  const currentSelectedTask = selectedTask
+    ? tasks?.find((t) => t._id === selectedTask._id) || null
+    : null;
 
   return (
     <div>
@@ -86,11 +93,19 @@ export function TaskBoard() {
             column={col}
             tasks={groupedTasks[col.id]}
             onStatusChange={handleStatusChange}
+            onTaskClick={setSelectedTask}
           />
         ))}
       </div>
 
       {showAddModal && <AddTaskModal onClose={() => setShowAddModal(false)} />}
+
+      {currentSelectedTask && (
+        <TaskDetailPanel
+          task={currentSelectedTask}
+          onClose={() => setSelectedTask(null)}
+        />
+      )}
     </div>
   );
 }
@@ -99,10 +114,12 @@ function Column({
   column,
   tasks,
   onStatusChange,
+  onTaskClick,
 }: {
   column: { id: Status; label: string; color: string };
   tasks: Task[];
   onStatusChange: (id: Id<"tasks">, status: Status) => void;
+  onTaskClick: (task: Task) => void;
 }) {
   const colorClasses = {
     "text-dim": "text-text-dim",
@@ -128,7 +145,12 @@ function Column({
 
       <div className="p-3 space-y-2 min-h-[200px]">
         {tasks.map((task) => (
-          <TaskCard key={task._id} task={task} onStatusChange={onStatusChange} />
+          <TaskCard
+            key={task._id}
+            task={task}
+            onStatusChange={onStatusChange}
+            onClick={() => onTaskClick(task)}
+          />
         ))}
         {tasks.length === 0 && (
           <div className="text-center text-text-muted text-[11px] py-8">—</div>
@@ -141,16 +163,19 @@ function Column({
 function TaskCard({
   task,
   onStatusChange,
+  onClick,
 }: {
   task: Task;
   onStatusChange: (id: Id<"tasks">, status: Status) => void;
+  onClick: () => void;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const assignee = ASSIGNEE_LABELS[task.assignee];
 
   return (
     <div
-      className={`bg-[#0a1520cc] border border-border rounded-sm p-3 border-l-2 ${PRIORITY_COLORS[task.priority]} relative group`}
+      onClick={onClick}
+      className={`bg-[#0a1520cc] border border-border rounded-sm p-3 border-l-2 ${PRIORITY_COLORS[task.priority]} relative group cursor-pointer hover:border-cyan/30 transition-colors`}
     >
       <div className="text-[13px] mb-2 text-text">{task.title}</div>
 
@@ -169,14 +194,20 @@ function TaskCard({
 
       {/* Status change dropdown */}
       <button
-        onClick={() => setShowMenu(!showMenu)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowMenu(!showMenu);
+        }}
         className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-text-muted hover:text-text text-xs transition-opacity"
       >
         ⋯
       </button>
 
       {showMenu && (
-        <div className="absolute top-8 right-2 bg-panel border border-border-glow rounded shadow-lg z-10">
+        <div
+          className="absolute top-8 right-2 bg-panel border border-border-glow rounded shadow-lg z-10"
+          onClick={(e) => e.stopPropagation()}
+        >
           {COLUMNS.filter((col) => col.id !== task.status).map((col) => (
             <button
               key={col.id}

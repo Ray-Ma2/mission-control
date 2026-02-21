@@ -1,9 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { Header } from "@/components/Header";
+import { Sidebar } from "@/components/Sidebar";
 import { TaskBoard } from "@/components/TaskBoard";
+import { CalendarView } from "@/components/CalendarView";
 
 export default function Home() {
+  const [activeView, setActiveView] = useState("tasks");
+
   return (
     <div className="min-h-screen flex flex-col relative">
       {/* Grid background */}
@@ -11,9 +16,14 @@ export default function Home() {
 
       <Header />
 
-      <main className="flex-1 relative z-10 p-6 overflow-auto">
-        <TaskBoard />
-      </main>
+      <div className="flex-1 flex relative z-10">
+        <Sidebar activeView={activeView} onViewChange={setActiveView} />
+
+        <main className="flex-1 p-6 overflow-auto">
+          {activeView === "tasks" && <TaskBoard />}
+          {activeView === "calendar" && <CalendarView />}
+        </main>
+      </div>
     </div>
   );
 }
